@@ -7,7 +7,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=, initial-scale=1.0">
-    <title>Bank Account Manager System</title>
+    <title>Banknginamo</title>
+    <link rel="icon" type="image/png" href="src/images/icon.png">
 </head>
 <body>
     <h1>Sign In</h1>

@@ -5,7 +5,7 @@
 
     if (empty($_SESSION['auto_generated_account_number'])){
         do {
-            $auto_generated_account_number = rand(0,999999999999);
+            $auto_generated_account_number = rand(100000000000, 999999999999);
             $stmt = $bank->runQuery("SELECT account_number FROM account_info WHERE account_number = :account_number");
             $stmt->execute(array(":account_number" => $auto_generated_account_number));
         } while($stmt->rowCount() > 0);

@@ -54,6 +54,8 @@ class bankAccount{
         }else{
             echo "<script>alert('An error occurred while creating the account. Please try again.'); window.location.href='../../';</script>";
         }
+
+        unset($_SESSION['auto_generated_account_number']);
     }
 
     public function userSignIn($csrf_token, $account_number, $pin)

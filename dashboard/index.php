@@ -428,10 +428,35 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal">
                         <i class="bi bi-pencil-square me-1"></i>Edit Profile
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form action="authentication/bank-account.php" method="post">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="editModalLabel">
+                            <i class="bi bi-pencil-square me-1"></i>Edit Profile
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token?>">
+                            <label for="username" class="form-label fw-medium">Username</label>
+                            <input type="text" name="username" class="form-control" id="username" placeholder="Enter username" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <input type="submit" name="btn-edit-username" class="btn btn-primary" value="Edit">
+                    </div>
+                </form>
             </div>
         </div>
     </div>

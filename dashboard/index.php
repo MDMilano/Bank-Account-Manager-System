@@ -86,7 +86,6 @@
                     </div>
                     <div class="user-details">
                         <span class="d-block text-white sidebar-text"><?php echo $userData['owner_name']; ?></span>
-                        <small class="text-white-50 sidebar-text">#<?php echo substr($userData['account_number'], -4); ?></small>
                     </div>
                 </div>
                 <a href="authentication/bank-account.php?sign-out" class="btn btn-light btn-sm w-100">
@@ -185,7 +184,7 @@
                                             <i class="bi bi-credit-card text-primary me-2"></i>
                                             <span class="fw-medium">Account Number</span>
                                         </div>
-                                        <span class="badge bg-light text-dark fs-6 fw-normal"><?php echo $userData['account_number']; ?></span>
+                                        <span class="badge bg-light text-dark fs-6 fw-normal"><?php echo $bank->hideAccountNumber($userData['account_number'], 6, 6); ?></span>
                                     </div>
                                     
                                     <div class="list-group-item px-0 py-3 d-flex justify-content-between align-items-center border-0">
@@ -402,7 +401,7 @@
                                     <i class="bi bi-credit-card text-primary me-2"></i>
                                     <span class="fw-medium">Account Number</span>
                                 </div>
-                                <span class="badge bg-light text-dark fs-6 fw-normal"><?php echo $userData['account_number']; ?></span>
+                                <span class="badge bg-light text-dark fs-6 fw-normal"><?php echo $bank->hideAccountNumber($userData['account_number'], 6, 6); ?></span>
                             </div>
                             
                             <div class="list-group-item px-0 py-3 d-flex justify-content-between align-items-center">

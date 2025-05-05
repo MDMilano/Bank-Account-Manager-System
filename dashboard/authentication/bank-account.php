@@ -232,6 +232,11 @@ class bankAccount{
         }
     }
 
+    public function hideAccountNumber($accountNumber, $start, $length) {
+        $hiddenPart = str_repeat('*', $length);
+        return substr($accountNumber, 0, $start) . $hiddenPart . substr($accountNumber, $start + $length);
+    }
+
     public function isSignedIn(){
         if(isset($_SESSION['account_number'])){
             return true;

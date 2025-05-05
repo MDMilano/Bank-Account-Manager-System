@@ -232,6 +232,41 @@ class bankAccount{
         }
     }
 
+    public function editUsername($csrf_token, $username){
+        if(empty($username)){
+            echo "<script>alert('Please enter username to edit.'); window.location.href='../';</script>";
+            exit;
+        }
+
+        if(!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)){
+            echo "<script>alert('Invalid CSRF token. Please try again.'); window.location.href='../';</script>";
+            exit;
+        }
+
+        unset($_SESSION['csrf_token']);
+
+        $stmt = $this->runQuery("SELECT * FROM account_info WHERE account_number = :account_number");
+        $stmt->execute(array(":account_number" => $_SESSION['account_number']));
+        $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if($stmt->rowCount() == 1){
+            $stmt = $this->runQuery("UPDATE account_info SET owner_name = :username WHERE account_number = :account_number");
+            $exec = $stmt->execute(array(
+                ":username" => $username,
+                ":account_number" => $_SESSION['account_number']
+            ));
+
+            if($exec){
+                echo "<script>alert('Username successfully updated!'); window.location.href='../';</script>";
+            }else{
+                echo "<script>alert('An error occurred while updating the username. Please try again.'); window.location.href='../';</script>";
+            }
+        }else{
+            echo "<script>alert('No account found with the provided account number.'); window.location.href='../';</script>";
+            exit;
+        }
+    }
+
     public function hideAccountNumber($accountNumber, $start, $length) {
         $hiddenPart = str_repeat('*', $length);
         return substr($accountNumber, 0, $start) . $hiddenPart . substr($accountNumber, $start + $length);
@@ -311,5 +346,13 @@ if(isset($_POST['btn-transfer'])){
 
     $transfer = new bankAccount();
     $transfer->transfer($csrf_token, $receiver_account_number, $transfer_amount);
-}    
+}
+
+if(isset($_POST['btn-edit-username'])){
+    $csrf_token = trim($_POST['csrf_token']);
+    $username =  trim($_POST['username']);
+
+    $edit = new bankAccount();
+    $edit->editUsername($csrf_token, $username);
+} 
 ?>

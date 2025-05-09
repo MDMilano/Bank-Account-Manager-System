@@ -12,29 +12,67 @@ class bankAccount{
         $this->conn = $database->dbConnection();
     }
 
+    function showAlert($type, $message, $redirectUrl = null) {
+        // Don't exit immediately - let the script finish and then show the alert
+        echo "
+        <script>
+            // Wait for the document to be fully loaded
+            document.addEventListener('DOMContentLoaded', function() {
+                // Check if SweetAlert is loaded
+                if (typeof Swal === 'undefined') {
+                    // If SweetAlert is not loaded, load it dynamically
+                    var script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+                    script.onload = function() {
+                        // Once loaded, show the alert
+                        showSweetAlert();
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    // If SweetAlert is already loaded, show the alert
+                    showSweetAlert();
+                }
+                
+                // Function to show the SweetAlert
+                function showSweetAlert() {
+                    Swal.fire({
+                        icon: '$type',
+                        title: '$message',
+                        confirmButtonText: 'OK'
+                    }).then((result) => {
+                        if (result.isConfirmed && '$redirectUrl') {
+                            window.location.href = '$redirectUrl';
+                        }
+                    });
+                }
+            });
+        </script>";
+        
+        // If this is the end of the script execution, exit
+        if ($redirectUrl) {
+            exit;
+        }
+    }
+
     public function createAccount($csrf_token, $account_number, $owner_name, $pin)
     {
-        if(empty($account_number) || empty($owner_name) || empty($pin)){
-            echo "<script>alert('All fields are required to create an account.'); window.location.href='../../';</script>";
-            exit;
+        if (empty($account_number) || empty($owner_name) || empty($pin)) {
+            $this->showAlert('error', 'All fields are required to create an account.', '../../');
         }
 
-        if(strlen($pin) !== 4 || !ctype_digit($pin)) {
-            echo "<script>alert('The PIN must be a 4-digit number.'); window.location.href='../../';</script>";
-            exit;
+        if (strlen($pin) !== 4 || !ctype_digit($pin)) {
+            $this->showAlert('error', 'The PIN must be a 4-digit number.', '../../');
         }
-        
+
         $stmt = $this->runQuery("SELECT * FROM account_info WHERE account_number = :account_number");
         $stmt->execute(array(":account_number" => $account_number));
 
-        if($stmt->rowCount() > 0){
-            echo "<script>alert('The account number already exists. Please use a different account number.'); window.location.href='../../';</script>";
-            exit;
+        if ($stmt->rowCount() > 0) {
+            $this->showAlert('error', 'The account number already exists. Please use a different account number.', '../../');
         }
 
-        if(!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)){
-            echo "<script>alert('Invalid CSRF token. Please try again.'); window.location.href='../../';</script>";
-            exit;
+        if (!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)) {
+            $this->showAlert('error', 'Invalid CSRF token. Please try again.', '../../');
         }
 
         unset($_SESSION['csrf_token']);
@@ -49,10 +87,10 @@ class bankAccount{
             ":balance" => 0
         ));
 
-        if($exec){
-            echo "<script>alert('Account created successfully!'); window.location.href='../../';</script>";
-        }else{
-            echo "<script>alert('An error occurred while creating the account. Please try again.'); window.location.href='../../';</script>";
+        if ($exec) {
+            $this->showAlert('success', 'Account created successfully!', '../../');
+        } else {
+            $this->showAlert('error', 'An error occurred while creating the account. Please try again.', '../../');
         }
 
         unset($_SESSION['auto_generated_account_number']);
@@ -61,13 +99,11 @@ class bankAccount{
     public function userSignIn($csrf_token, $account_number, $pin)
     {
         if(empty($account_number) || empty($pin)){
-            echo "<script>alert('Both account number and PIN are required to sign in.'); window.location.href='../../';</script>";
-            exit;
+            $this->showAlert('error', 'Both account number and PIN are required to sign in.', '../../');
         }
 
         if(!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)){
-            echo "<script>alert('Invalid CSRF token. Please try again.'); window.location.href='../../';</script>";
-            exit;
+            $this->showAlert('error', 'Invalid CSRF token. Please try again.', '../../');
         }
 
         unset($_SESSION['csrf_token']);
@@ -80,27 +116,22 @@ class bankAccount{
             if(password_verify($pin, $userRow['pin'])){
                 $_SESSION['account_number'] = $userRow['account_number'];
 
-                echo "<script>alert('Welcome back, {$userRow['owner_name']}!'); window.location.href='../';</script>";
-                exit;
+                $this->showAlert('success', "Welcome back, {$userRow['owner_name']}!", '../');
             }else{
-                echo "<script>alert('Incorrect PIN. Please try again.'); window.location.href='../../';</script>";
-                exit;
+                $this->showAlert('error', 'Incorrect PIN. Please try again.', '../../');
             }
         }else{
-            echo "<script>alert('No account found with the provided account number.'); window.location.href='../../';</script>";
-            exit;
+            $this->showAlert('error', 'No account found with the provided account number.', '../../');
         }
     }
 
     public function deposit($csrf_token, $deposit_amount){
         if(empty($deposit_amount)){
-            echo "<script>alert('Please enter an amount to deposit.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Please enter an amount to deposit.', '../');
         }
 
         if(!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)){
-            echo "<script>alert('Invalid CSRF token. Please try again.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Invalid CSRF token. Please try again.', '../');
         }
 
         unset($_SESSION['csrf_token']);
@@ -120,25 +151,22 @@ class bankAccount{
             ));
 
             if($exec){
-                echo "<script>alert('Deposit completed successfully!'); window.location.href='../';</script>";
+                $this->showAlert('success', 'Deposit completed successfully!', '../');
             }else{
-                echo "<script>alert('An error occurred while processing the deposit. Please try again.'); window.location.href='../';</script>";
+                $this->showAlert('error', 'An error occurred while processing the deposit. Please try again.', '../');
             }
         }else{
-            echo "<script>alert('The deposit amount must be greater than 0.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'The deposit amount must be greater than 0.', '../');
         }
     }
 
     public function withdraw($csrf_token, $withdraw_amount){
         if(empty($withdraw_amount)){
-            echo "<script>alert('Please enter an amount to withdraw.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Please enter an amount to withdraw.', '../');
         }
 
         if(!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)){
-            echo "<script>alert('Invalid CSRF token. Please try again.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Invalid CSRF token. Please try again.', '../');
         }
 
         unset($_SESSION['csrf_token']);
@@ -159,34 +187,29 @@ class bankAccount{
                 ));
 
                 if($exec){
-                    echo "<script>alert('Withdrawal completed successfully!'); window.location.href='../';</script>";
+                    $this->showAlert('success', 'Withdrawal completed successfully!', '../');
                 }else{
-                    echo "<script>alert('An error occurred while processing the withdrawal. Please try again.'); window.location.href='../';</script>";
+                    $this->showAlert('error', 'An error occurred while processing the withdrawal. Please try again.', '../');
                 }
             }else{
-                echo "<script>alert('Insufficient balance for the requested withdrawal amount.'); window.location.href='../';</script>";
-                exit;
+                $this->showAlert('error', 'Insufficient balance for the requested withdrawal amount.', '../');
             }
         }else{
-            echo "<script>alert('The withdrawal amount must be greater than 0.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'The withdrawal amount must be greater than 0.', '../');
         }
     }
 
     public function transfer($csrf_token, $receiver_account_number, $transfer_amount){
         if(empty($receiver_account_number) || empty($transfer_amount)){
-            echo "<script>alert('Please enter account number and amount to transfer.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Please enter account number and amount to transfer.', '../');
         }
 
         if($_SESSION['account_number'] == $receiver_account_number){
-            echo "<script>alert('You cannot transfer money to your own account.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'You cannot transfer money to your own account.', '../');
         }
 
         if(!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)){
-            echo "<script>alert('Invalid CSRF token. Please try again.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Invalid CSRF token. Please try again.', '../');
         }
 
         unset($_SESSION['csrf_token']);
@@ -205,12 +228,16 @@ class bankAccount{
                     ":account_number" => $_SESSION['account_number']
                 ));
             }else{
-                echo "<script>alert('Insufficient balance for the requested transfer amount.'); window.location.href='../';</script>";
-                exit;
+                $this->showAlert('error', 'Insufficient balance for the requested transfer amount.', '../');
             }
 
             $stmt = $this->runQuery("SELECT * FROM account_info WHERE account_number = :account_number");
             $stmt->execute(array(":account_number" => $receiver_account_number));
+            
+            if($stmt->rowCount() == 0) {
+                $this->showAlert('error', 'Recipient account not found. Please check the account number.', '../');
+            }
+            
             $receiverData = $stmt->fetch(PDO::FETCH_ASSOC);
 
             $receiverBalance = $receiverData['balance'] + $transfer_amount;
@@ -222,25 +249,22 @@ class bankAccount{
             ));
 
             if($exec && $exec1){
-                echo "<script>alert('Transfer completed successfully!'); window.location.href='../';</script>";
+                $this->showAlert('success', 'Transfer completed successfully!', '../');
             }else{
-                echo "<script>alert('An error occurred while processing the transfer. Please try again.'); window.location.href='../';</script>";
+                $this->showAlert('error', 'An error occurred while processing the transfer. Please try again.', '../');
             }
         }else{
-            echo "<script>alert('The transfer amount must be greater than 0.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'The transfer amount must be greater than 0.', '../');
         }
     }
 
     public function editUsername($csrf_token, $username){
         if(empty($username)){
-            echo "<script>alert('Please enter username to edit.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Please enter username to edit.', '../');
         }
 
         if(!isset($csrf_token) || !hash_equals($_SESSION['csrf_token'], $csrf_token)){
-            echo "<script>alert('Invalid CSRF token. Please try again.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'Invalid CSRF token. Please try again.', '../');
         }
 
         unset($_SESSION['csrf_token']);
@@ -257,13 +281,12 @@ class bankAccount{
             ));
 
             if($exec){
-                echo "<script>alert('Username successfully updated!'); window.location.href='../';</script>";
+                $this->showAlert('success', 'Username successfully updated!', '../');
             }else{
-                echo "<script>alert('An error occurred while updating the username. Please try again.'); window.location.href='../';</script>";
+                $this->showAlert('error', 'An error occurred while updating the username. Please try again.', '../');
             }
         }else{
-            echo "<script>alert('No account found with the provided account number.'); window.location.href='../';</script>";
-            exit;
+            $this->showAlert('error', 'No account found with the provided account number.', '../');
         }
     }
 
@@ -281,13 +304,11 @@ class bankAccount{
     public function userSignOut(){
         unset($_SESSION['account_number']);
 
-        echo "<script>alert('You have successfully signed out.'); window.location.href='../../';</script>";
-        exit;
+        $this->showAlert('success', 'You have successfully signed out.', '../../');
     }
 
     public function redirect($message, $url){
-        echo "<script>alert('$message'); window.location.href='$url';</script>";
-        exit;
+        $this->showAlert('info', $message, $url);
     }
 
     public function runQuery($sql){

@@ -87,13 +87,13 @@ class bankAccount{
             ":balance" => 0
         ));
 
+        unset($_SESSION['auto_generated_account_number']);
+
         if ($exec) {
             $this->showAlert('success', 'Account created successfully!', '../../');
         } else {
             $this->showAlert('error', 'An error occurred while creating the account. Please try again.', '../../');
         }
-
-        unset($_SESSION['auto_generated_account_number']);
     }
 
     public function userSignIn($csrf_token, $account_number, $pin)
@@ -116,7 +116,7 @@ class bankAccount{
             if(password_verify($pin, $userRow['pin'])){
                 $_SESSION['account_number'] = $userRow['account_number'];
 
-                $this->showAlert('success', "Welcome back, {$userRow['owner_name']}!", '../');
+                $this->showAlert('success', "Welcome, {$userRow['owner_name']}!", '../');
             }else{
                 $this->showAlert('error', 'Incorrect PIN. Please try again.', '../../');
             }
@@ -150,7 +150,9 @@ class bankAccount{
                 ":account_number" => $account_number
             ));
 
-            if($exec){
+            $transaction = $this->transaction($account_number, "deposit", $deposit_amount);
+
+            if($exec && $transaction){
                 $this->showAlert('success', 'Deposit completed successfully!', '../');
             }else{
                 $this->showAlert('error', 'An error occurred while processing the deposit. Please try again.', '../');
@@ -186,7 +188,9 @@ class bankAccount{
                     ":account_number" => $account_number
                 ));
 
-                if($exec){
+                $transaction = $this->transaction($account_number, "withdrawal", $withdraw_amount);
+
+                if($exec & $transaction){
                     $this->showAlert('success', 'Withdrawal completed successfully!', '../');
                 }else{
                     $this->showAlert('error', 'An error occurred while processing the withdrawal. Please try again.', '../');
@@ -248,7 +252,9 @@ class bankAccount{
                 ":account_number" => $receiver_account_number
             ));
 
-            if($exec && $exec1){
+            $transaction = $this->transaction($_SESSION['account_number'], "transfer", $transfer_amount, $receiver_account_number);
+
+            if($exec && $exec1 && $transaction){
                 $this->showAlert('success', 'Transfer completed successfully!', '../');
             }else{
                 $this->showAlert('error', 'An error occurred while processing the transfer. Please try again.', '../');
@@ -284,6 +290,47 @@ class bankAccount{
                 $this->showAlert('success', 'Username successfully updated!', '../');
             }else{
                 $this->showAlert('error', 'An error occurred while updating the username. Please try again.', '../');
+            }
+        }else{
+            $this->showAlert('error', 'No account found with the provided account number.', '../');
+        }
+    }
+
+    private function transaction($account_number, $transaction_type, $amount, $recipient_account_number = NULL){
+        $stmt = $this->runQuery("INSERT INTO transactions (account_number, transaction_type, amount, recipient_account_number) VALUES (:account_number, :transaction_type, :amount, :recipient_account_number)");
+        $stmt->execute(array(
+            ":account_number" => $account_number,
+            ":transaction_type" => $transaction_type,
+            ":amount" => $amount,
+            ":recipient_account_number" => $recipient_account_number
+        ));
+        return true;
+    }
+
+    public function deleteAccount($pin){
+        if(empty($pin)){
+            $this->showAlert('error', 'Please enter your 4-digit PIN to confirm account deletion.', '../');
+        }
+
+        $stmt = $this->runQuery("SELECT * FROM account_info WHERE account_number = :account_number");
+        $stmt->execute(array(":account_number" => $_SESSION['account_number']));
+        $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if($stmt->rowCount() > 0){
+            if(password_verify($pin, $userRow['pin'])){
+                $stmt = $this->runQuery("DELETE FROM account_info WHERE account_number = :account_number");
+                $deleteAccount = $stmt->execute(array(
+                    ":account_number" => $_SESSION['account_number']
+                ));
+
+                if($deleteAccount){
+                    unset($_SESSION['account_number']);
+                    $this->showAlert('success', "Account already deleted!", '../../');
+                }else{
+                    $this->showAlert('error', 'An error occurred while deleting account. Please try again.', '../');
+                }
+            }else{
+                $this->showAlert('error', 'Incorrect PIN. Please try again.', '../');
             }
         }else{
             $this->showAlert('error', 'No account found with the provided account number.', '../');
@@ -375,5 +422,12 @@ if(isset($_POST['btn-edit-username'])){
 
     $edit = new bankAccount();
     $edit->editUsername($csrf_token, $username);
-} 
+}
+
+if(isset($_POST['btn-delete-account'])){
+    $pin = trim($_POST['deleteConfirmPin']);
+
+    $delete = new bankAccount();
+    $delete->deleteAccount($pin);
+}
 ?>

@@ -1,15 +1,19 @@
 <?php
-    include_once '../config/settings-configuration.php';
-    require_once 'authentication/bank-account.php';
-    $bank = new bankAccount();
+include_once '../config/settings-configuration.php';
+require_once 'authentication/bank-account.php';
+$bank = new bankAccount();
 
-    if(!$bank->isSignedIn()){
-        $bank->redirect('User must sign in first!', '../');
-    }
-
+if(!$bank->isSignedIn()){
+    $bank->redirect('User must sign in first!', '../');
+}else{
     $stmt = $bank->runQuery("SELECT * FROM account_info WHERE account_number = :account_number");
     $stmt->execute(array(":account_number" => $_SESSION['account_number']));
     $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $stmt = $bank->runQuery("SELECT * FROM transactions WHERE account_number = :account_number OR recipient_account_number = :recipient_account_number ORDER BY transaction_date DESC");
+    $stmt->execute(array(":account_number" => $_SESSION['account_number'], ":recipient_account_number" => $_SESSION['account_number']));
+    $userTransaction = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 
 <!DOCTYPE html>
@@ -23,18 +27,23 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../src/css/styles.css">
 </head>
 <body>
     <div class="wrapper">
+        <!-- Sidebar Overlay (Mobile) -->
+        <div id="sidebarOverlay"></div>
+        
         <!-- Sidebar Toggle Button -->
         <button class="toggle-sidebar" id="sidebarToggle">
             <i class="bi bi-chevron-left" id="toggleIcon"></i>
         </button>
         
         <!-- Sidebar -->
-        <nav id="sidebar" class="bg-primary">
+        <nav id="sidebar">
             <div class="sidebar-header">
                 <img src="../src/images/icon.png" alt="Banknginamo Logo" height="30" class="me-2">
                 <span class="sidebar-text">Banknginamo</span>
@@ -72,6 +81,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#transactionHistoryModal">
+                        <i class="bi bi-clock-history"></i>
+                        <span class="sidebar-text">History</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#viewProfileModal">
                         <i class="bi bi-person-circle"></i>
                         <span class="sidebar-text">Profile</span>
@@ -101,70 +116,78 @@
                 <!-- Welcome Banner -->
                 <div class="row mb-4">
                     <div class="col-12">
-                        <div class="card border-0 bg-primary text-white dashboard-card">
+                        <div class="card border-0 shadow-sm dashboard-card">
                             <div class="card-body p-4">
-                                <div class="row align-items-center">
-                                    <div class="col-md-6">
-                                        <h2 class="fw-bold mb-1">Welcome back, <?php echo explode(' ', $userData['owner_name'])[0]; ?>!</h2>
-                                        <p class="mb-0 opacity-75">Here's your financial overview</p>
-                                    </div>
-                                    <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                                        <div class="d-flex flex-column align-items-md-end">
-                                            <span class="fs-6 opacity-75">Current Balance</span>
-                                            <h3 class="fw-bold mb-0">₱ <?php echo number_format($userData['balance'], 2); ?></h3>
-                                        </div>
-                                    </div>
-                                </div>
+                                <h5 class="card-title mb-0">Welcome, <?php echo explode(' ', $userData['owner_name'])[0]; ?>!</h5>
+                                <p class="text-muted">Here's your account summary</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Balance Card (New Design) -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="balance-card">
+                            <div class="balance-title">Current Balance</div>
+                            <div class="balance-amount">₱ <?php echo number_format($userData['balance'], 2); ?></div>
+                            <div class="balance-actions">
+                                <button class="balance-action-btn" data-bs-toggle="modal" data-bs-target="#depositModal">
+                                    <i class="bi bi-plus-circle"></i>
+                                    Deposit
+                                </button>
+                                <button class="balance-action-btn" data-bs-toggle="modal" data-bs-target="#withdrawModal">
+                                    <i class="bi bi-dash-circle"></i>
+                                    Withdraw
+                                </button>
+                                <button class="balance-action-btn" data-bs-toggle="modal" data-bs-target="#transferModal">
+                                    <i class="bi bi-arrow-left-right"></i>
+                                    Transfer
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Quick Actions -->
-                <div class="row mb-4 g-3">
+                <div class="row mb-4">
                     <div class="col-12">
                         <h5 class="fw-bold mb-3">Quick Actions</h5>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card dashboard-card quick-action h-100">
-                            <div class="card-body text-center p-4">
-                                <div class="text-primary mb-3">
-                                    <i class="bi bi-wallet card-icon"></i>
-                                </div>
-                                <h5 class="card-title">Deposit</h5>
-                                <p class="card-text text-muted">Add funds to your account</p>
-                                <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#depositModal">
-                                    Deposit Now
-                                </button>
+                    <div class="col-md-4 col-sm-6 mb-3">
+                        <div class="quick-action-card">
+                            <div class="quick-action-icon">
+                                <i class="bi bi-wallet"></i>
                             </div>
+                            <h5>Deposit</h5>
+                            <p class="text-muted">Add funds to your account</p>
+                            <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#depositModal">
+                                Deposit Now
+                            </button>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card dashboard-card quick-action h-100">
-                            <div class="card-body text-center p-4">
-                                <div class="text-primary mb-3">
-                                    <i class="bi bi-cash-coin card-icon"></i>
-                                </div>
-                                <h5 class="card-title">Withdraw</h5>
-                                <p class="card-text text-muted">Withdraw funds from your account</p>
-                                <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#withdrawModal">
-                                    Withdraw Now
-                                </button>
+                    <div class="col-md-4 col-sm-6 mb-3">
+                        <div class="quick-action-card">
+                            <div class="quick-action-icon">
+                                <i class="bi bi-cash-coin"></i>
                             </div>
+                            <h5>Withdraw</h5>
+                            <p class="text-muted">Withdraw funds from your account</p>
+                            <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#withdrawModal">
+                                Withdraw Now
+                            </button>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card dashboard-card quick-action h-100">
-                            <div class="card-body text-center p-4">
-                                <div class="text-primary mb-3">
-                                    <i class="bi bi-arrow-left-right card-icon"></i>
-                                </div>
-                                <h5 class="card-title">Transfer</h5>
-                                <p class="card-text text-muted">Send money to another account</p>
-                                <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#transferModal">
-                                    Transfer Now
-                                </button>
+                    <div class="col-md-4 col-sm-6 mb-3">
+                        <div class="quick-action-card">
+                            <div class="quick-action-icon">
+                                <i class="bi bi-arrow-left-right"></i>
                             </div>
+                            <h5>Transfer</h5>
+                            <p class="text-muted">Send money to another account</p>
+                            <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#transferModal">
+                                Transfer Now
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -174,7 +197,7 @@
                     <div class="col-12">
                         <h5 class="fw-bold mb-3">Account Overview</h5>
                     </div>
-                    <div class="col-lg-6">
+                    <div class="col-lg-6 mb-3">
                         <div class="card dashboard-card h-100">
                             <div class="card-body p-4">
                                 <h5 class="card-title mb-4">Account Information</h5>
@@ -213,18 +236,63 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-6 mt-3 mt-lg-0">
+                    <div class="col-lg-6 mb-3">
                         <div class="card dashboard-card h-100">
                             <div class="card-body p-4">
-                                <h5 class="card-title mb-4">Balance Summary</h5>
-                                <div class="text-center my-4">
-                                    <div class="balance-display mb-2">₱ <?php echo number_format($userData['balance'], 2); ?></div>
-                                    <p class="text-muted">Available Balance</p>
-                                </div>
-                                <div class="d-grid gap-2 mt-4">
-                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#balanceModal">
-                                        <i class="bi bi-eye me-1"></i>View Details
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h5 class="card-title mb-0">Recent Activity</h5>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#transactionHistoryModal">
+                                        View All
                                     </button>
+                                </div>
+                                
+                                <div class="transaction-list">
+                                    <?php if(empty($userTransaction)): ?>
+                                        <div class="text-center py-4">
+                                            <div class="text-muted">
+                                                <i class="bi bi-clock-history fs-1"></i>
+                                                <p class="mt-3">No recent transactions</p>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <?php foreach(array_slice($userTransaction, 0, 3) as $transaction): ?>
+                                            <div class="transaction-item">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="transaction-icon transaction-<?php echo $transaction['transaction_type']; ?>">
+                                                        <?php if($transaction['transaction_type'] == 'deposit'): ?>
+                                                            <i class="bi bi-wallet"></i>
+                                                        <?php elseif($transaction['transaction_type'] == 'withdrawal'): ?>
+                                                            <i class="bi bi-cash-coin"></i>
+                                                        <?php else: ?>
+                                                            <i class="bi bi-arrow-left-right"></i>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <div>
+                                                        <div class="transaction-date"><?php echo date('M d, Y - h:i A', strtotime($transaction['transaction_date'])); ?></div>
+                                                    </div>
+                                                </div>
+                                                <div class="transaction-amount <?php 
+                                                    if ($transaction['transaction_type'] == 'deposit') {
+                                                        echo 'deposit';
+                                                    } elseif ($transaction['transaction_type'] == 'transfer' && $transaction['recipient_account_number'] == $_SESSION['account_number']) {
+                                                        echo 'deposit'; // Use deposit class for incoming transfers (green color)
+                                                    } else {
+                                                        echo $transaction['transaction_type']; // Use original class for withdrawals and outgoing transfers
+                                                    }
+                                                ?>">
+                                                    <?php 
+                                                    if ($transaction['transaction_type'] == 'deposit') {
+                                                        echo '+';
+                                                    } elseif ($transaction['transaction_type'] == 'transfer' && $transaction['recipient_account_number'] == $_SESSION['account_number']) {
+                                                        echo '+'; // Incoming transfer (I'm the recipient)
+                                                    } else {
+                                                        echo '-'; // Withdrawal or outgoing transfer
+                                                    }
+                                                    ?>₱ <?php echo number_format($transaction['amount'], 2); ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -371,6 +439,124 @@
         </div>
     </div>
 
+    <!-- Transaction History Modal -->
+    <div class="modal fade" id="transactionHistoryModal" tabindex="-1" aria-labelledby="transactionHistoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="transactionHistoryModalLabel">
+                        <i class="bi bi-clock-history me-2"></i>Transaction History
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <select class="form-select" id="transactionTypeFilter">
+                                    <option value="all">All Transactions</option>
+                                    <option value="deposit">Deposits</option>
+                                    <option value="withdrawal">Withdrawals</option>
+                                    <option value="transfer">Transfers</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="date" class="form-control" id="startDate" placeholder="Start Date">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="date" class="form-control" id="endDate" placeholder="End Date">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3 mt-2">
+                        <div id="filterStatus" class="text-muted small">Showing: All transactions</div>
+                        <button id="clearFilters" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i>Clear Filters
+                        </button>
+                    </div>
+                    
+                    <!-- No transactions message (hidden by default) -->
+                    <div id="noTransactionsMessage" class="text-center py-4" style="display: none;">
+                        <div class="text-muted">
+                            <i class="bi bi-search fs-1"></i>
+                            <p class="mt-3">No transactions match your filters</p>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover transaction-table">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Transaction Type</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if(empty($userTransaction)): ?>
+                                    <tr id="noTransactionsInitial">
+                                        <td colspan="3" class="text-center py-4">
+                                            <div class="text-muted">
+                                                <i class="bi bi-clock-history fs-1"></i>
+                                                <p class="mt-3">No transaction history</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach($userTransaction as $transaction): ?>
+                                    <tr>
+                                        <td><?php echo date('M d, Y - h:i A', strtotime($transaction['transaction_date'])); ?></td>
+                                        <td>
+                                            <span class="transaction-badge <?php echo $transaction['transaction_type']; ?>">
+                                                <?php 
+                                                    if($transaction['transaction_type'] == 'deposit') echo 'Deposit';
+                                                    elseif($transaction['transaction_type'] == 'withdrawal') echo 'Withdrawal';
+                                                    elseif($transaction['transaction_type'] == 'transfer') {
+                                                        if($transaction['recipient_account_number'] == $_SESSION['account_number']) {
+                                                            echo 'Transfer In';
+                                                        } else {
+                                                            echo 'Transfer Out';
+                                                        }
+                                                    } else {
+                                                        echo 'Transfer';
+                                                    }
+                                                ?>
+                                            </span>
+                                        </td>
+                                        <td class="<?php 
+                                            if ($transaction['transaction_type'] == 'deposit') {
+                                                echo 'text-success';
+                                            } elseif ($transaction['transaction_type'] == 'transfer' && $transaction['recipient_account_number'] == $_SESSION['account_number']) {
+                                                echo 'text-success';
+                                            } else {
+                                                echo 'text-danger';
+                                            }
+                                        ?>">
+                                            <?php 
+                                            if ($transaction['transaction_type'] == 'deposit') {
+                                                echo '+';
+                                            } elseif ($transaction['transaction_type'] == 'transfer' && $transaction['recipient_account_number'] == $_SESSION['account_number']) {
+                                                echo '+';
+                                            } else {
+                                                echo '-';
+                                            }
+                                            ?>₱ <?php echo number_format($transaction['amount'], 2); ?>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- View Profile -->
     <div class="modal fade" id="viewProfileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -427,11 +613,69 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal">
                         <i class="bi bi-pencil-square me-1"></i>Edit Profile
                     </button>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="deleteAccountForm" action="authentication/bank-account.php" method="POST">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="deleteAccountModalLabel">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete Account
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="text-center mb-4">
+                            <div class="warning-icon bg-danger-subtle text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                                <i class="bi bi-exclamation-triangle-fill" style="font-size: 2.5rem;"></i>
+                            </div>
+                            <h4 class="fw-bold text-danger">Delete Your Account?</h4>
+                            <p class="text-muted">This action cannot be undone.</p>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Warning:</strong> Deleting your account will permanently remove all your data, including transaction history and account information.
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="deleteConfirmPin" class="form-label fw-medium">Enter your PIN to confirm</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control pin-input" name="deleteConfirmPin" id="deleteConfirmPin" placeholder="4-digit PIN" maxlength="4" pattern="[0-9]{4}" required>
+                            </div>
+                            <div class="form-text">Please enter your 4-digit PIN to confirm account deletion</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmDeleteCheck" required>
+                                <label class="form-check-label" for="confirmDeleteCheck">
+                                    I understand that this action is permanent and cannot be undone
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>Cancel
+                        </button>
+                        <button type="submit" name="btn-delete-account" class="btn btn-danger" id="confirmDeleteBtn" disabled>
+                            <i class="bi bi-trash me-1"></i>Delete Account
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -451,6 +695,7 @@
                             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token?>">
                             <label for="username" class="form-label fw-medium">Username</label>
                             <input type="text" name="username" class="form-control" id="username" placeholder="Enter username" required>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

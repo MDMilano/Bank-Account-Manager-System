@@ -12,7 +12,7 @@ class Database{
     {
         if($_SERVER['SERVER_NAME'] === "localhost" || $_SERVER['SERVER_ADDR'] === "127.0.0.1"){
             $this->host = "localhost";
-            $this->db_name = "bank-acc-ms";
+            $this->db_name = "banknginamo";
             $this->username = "root";
             $this->password = "";
         }else{
